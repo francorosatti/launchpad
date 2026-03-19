@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=/home/franco/Documents/github/launchpad
+WorkingDirectory=/path/to/your/launchpad
 ExecStart=/usr/bin/node server.js
 Restart=on-failure
 RestartSec=5

@@ -23,7 +23,7 @@ gh auth status    # should show ✓ Logged in
 ## Installation
 
 ```bash
-git clone git@github.com:franrosattiLS/launchpad.git
+git clone git@github.com:francorosatti/launchpad.git
 cd launchpad
 npm install
 ```
