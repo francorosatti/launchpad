@@ -1,0 +1,75 @@
+.badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.badge-ok {
+  background: #2d8a4e;
+  color: #fff;
+}
+
+.badge-deploy {
+  background: #d97706;
+  color: #fff;
+}
+
+.badge-deploy:hover {
+  background: #b45309;
+  color: #fff;
+}
+
+.badge-deploy-prod {
+  background: #dc2626;
+  color: #fff;
+}
+
+.badge-deploy-prod:hover {
+  background: #b91c1c;
+  color: #fff;
+}
+
+.badge-error {
+  background: #6b7280;
+  color: #fff;
+  cursor: help;
+}
+
+.summary {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.summary button {
+  margin: 0;
+  width: auto;
+}
+
+.summary small {
+  color: #6b7280;
+}
+
+#repos-list label {
+  display: block;
+  padding: 0.25rem 0;
+}
+
+#repos-filter {
+  margin-bottom: 0.5rem;
+}
+
+figure {
+  overflow-x: auto;
+}
+
+table th:first-child,
+table td:first-child {
+  min-width: 200px;
+}

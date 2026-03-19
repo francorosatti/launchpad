@@ -1,0 +1,15 @@
+[Unit]
+Description=Launchpad - GitHub deploy status dashboard
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/franco/Documents/github/launchpad
+ExecStart=/usr/bin/node server.js
+Restart=on-failure
+RestartSec=5
+Environment=NODE_ENV=production
+Environment=PATH=/home/linuxbrew/.linuxbrew/bin:/usr/local/bin:/usr/bin:/bin
+
+[Install]
+WantedBy=default.target
