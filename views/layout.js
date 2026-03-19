@@ -7,11 +7,12 @@ function layout(title, bodyHtml) {
   <title>${title} - Launchpad</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
   <link rel="stylesheet" href="/style.css">
+  <link rel="icon" type="image/svg+xml" href="/icon.svg">
 </head>
 <body>
   <nav class="container">
     <ul>
-      <li><strong>Launchpad</strong></li>
+      <li><a href="/" class="brand"><img src="/icon.svg" alt="" width="28" height="28"> <strong>Launchpad</strong></a></li>
     </ul>
     <ul>
       <li><a href="/">Dashboard</a></li>

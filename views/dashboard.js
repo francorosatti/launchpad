@@ -13,11 +13,18 @@ function escapeHtml(str) {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+function renderBranchesCell(org, repo, count) {
+  const url = `https://github.com/${encodeURIComponent(org)}/${encodeURIComponent(repo)}/branches/all`;
+  if (count === null) return '<span class="badge badge-error" title="Could not fetch">N/A</span>';
+  return `<a href="${url}" target="_blank">${count}</a>`;
+}
+
 function renderRow(org, repo) {
   return `<tr>
     <td><a href="https://github.com/${encodeURIComponent(org)}/${encodeURIComponent(repo.name)}" target="_blank">${escapeHtml(repo.name)}</a></td>
     <td>${renderStatusCell(org, repo.name, repo.qa, 'qa', 'development')}</td>
     <td>${renderStatusCell(org, repo.name, repo.prod, 'master', 'qa')}</td>
+    <td>${renderBranchesCell(org, repo.name, repo.branches)}</td>
   </tr>`;
 }
 
@@ -47,6 +54,7 @@ function renderDashboard(org, statuses, lastRefresh) {
             <th>Repository</th>
             <th>QA <small>(development &rarr; qa)</small></th>
             <th>Production <small>(qa &rarr; master)</small></th>
+            <th>Branches</th>
           </tr>
         </thead>
         <tbody id="status-body">

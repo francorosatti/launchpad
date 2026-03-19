@@ -169,6 +169,25 @@ To verify, run `npm start` manually first, then check http://localhost:3033.
 
 The dashboard will be available at http://localhost:3033 every time you log in.
 
+### App menu shortcut (optional)
+
+On **Linux**, you can add Launchpad to your application menu so it opens in your default browser:
+
+```bash
+cat > ~/.local/share/applications/launchpad.desktop << EOF
+[Desktop Entry]
+Name=Launchpad
+Comment=GitHub deploy status dashboard
+Exec=xdg-open http://localhost:3033
+Type=Application
+Categories=Development;
+Icon=/path/to/your/launchpad/public/icon.svg
+StartupNotify=false
+EOF
+```
+
+Update the `Icon` path to match your clone location.
+
 ## Usage
 
 1. On first visit, you'll be redirected to **Settings**

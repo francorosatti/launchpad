@@ -1,3 +1,14 @@
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-decoration: none;
+}
+
+.brand img {
+  border-radius: 6px;
+}
+
 .badge {
   display: inline-block;
   padding: 0.2rem 0.6rem;
