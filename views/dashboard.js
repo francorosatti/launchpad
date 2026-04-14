@@ -19,12 +19,20 @@ function renderBranchesCell(org, repo, count) {
   return `<a href="${url}" target="_blank">${count}</a>`;
 }
 
+function renderVulnsCell(org, repo, count) {
+  const url = `https://github.com/${encodeURIComponent(org)}/${encodeURIComponent(repo)}/security/dependabot`;
+  if (count === null) return '<span class="badge badge-error" title="Could not fetch (Dependabot may not be enabled)">N/A</span>';
+  if (count === 0) return `<a href="${url}" target="_blank" class="badge badge-ok">0</a>`;
+  return `<a href="${url}" target="_blank" class="badge badge-vuln">${count}</a>`;
+}
+
 function renderRow(org, repo) {
   return `<tr>
     <td><a href="https://github.com/${encodeURIComponent(org)}/${encodeURIComponent(repo.name)}" target="_blank">${escapeHtml(repo.name)}</a></td>
     <td>${renderStatusCell(org, repo.name, repo.qa, 'qa', 'development')}</td>
     <td>${renderStatusCell(org, repo.name, repo.prod, 'master', 'qa')}</td>
     <td>${renderBranchesCell(org, repo.name, repo.branches)}</td>
+    <td>${renderVulnsCell(org, repo.name, repo.vulns)}</td>
   </tr>`;
 }
 
@@ -33,6 +41,7 @@ function renderDashboard(org, statuses, lastRefresh) {
 
   const qaNeeded = statuses.filter(r => !r.qa.error && r.qa.ahead_by > 0).length;
   const prodNeeded = statuses.filter(r => !r.prod.error && r.prod.ahead_by > 0).length;
+  const totalVulns = statuses.reduce((sum, r) => sum + (r.vulns || 0), 0);
 
   return `
     <hgroup>
@@ -43,6 +52,7 @@ function renderDashboard(org, statuses, lastRefresh) {
     <div class="summary">
       <span class="badge badge-deploy">${qaNeeded} need QA deploy</span>
       <span class="badge badge-deploy-prod">${prodNeeded} need Prod deploy</span>
+      <span id="vuln-summary" class="badge ${totalVulns > 0 ? 'badge-vuln' : 'badge-ok'}">${totalVulns} vulnerabilit${totalVulns === 1 ? 'y' : 'ies'}</span>
       <button id="refresh-btn" class="outline" onclick="refreshData()">Refresh</button>
       <small id="last-refresh">Last refreshed: ${escapeHtml(lastRefresh)}</small>
     </div>
@@ -55,6 +65,7 @@ function renderDashboard(org, statuses, lastRefresh) {
             <th>QA <small>(development &rarr; qa)</small></th>
             <th>Production <small>(qa &rarr; master)</small></th>
             <th>Branches</th>
+            <th>Vulnerabilities</th>
           </tr>
         </thead>
         <tbody id="status-body">
@@ -81,6 +92,10 @@ function renderDashboard(org, statuses, lastRefresh) {
           const summary = document.querySelector('.summary');
           summary.querySelector('.badge-deploy').textContent = data.qaNeeded + ' need QA deploy';
           summary.querySelector('.badge-deploy-prod').textContent = data.prodNeeded + ' need Prod deploy';
+
+          const vulnBadge = document.getElementById('vuln-summary');
+          vulnBadge.textContent = data.totalVulns + (data.totalVulns === 1 ? ' vulnerability' : ' vulnerabilities');
+          vulnBadge.className = 'badge ' + (data.totalVulns > 0 ? 'badge-vuln' : 'badge-ok');
         } catch (err) {
           alert('Refresh failed: ' + err.message);
         } finally {

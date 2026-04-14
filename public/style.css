@@ -44,6 +44,16 @@
   color: #fff;
 }
 
+.badge-vuln {
+  background: #7c3aed;
+  color: #fff;
+}
+
+.badge-vuln:hover {
+  background: #6d28d9;
+  color: #fff;
+}
+
 .badge-error {
   background: #6b7280;
   color: #fff;

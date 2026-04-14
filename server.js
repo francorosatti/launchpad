@@ -69,8 +69,9 @@ app.get('/api/refresh', async (req, res) => {
     const html = statuses.map(repo => renderRow(cfg.org, repo)).join('\n');
     const qaNeeded = statuses.filter(r => !r.qa.error && r.qa.ahead_by > 0).length;
     const prodNeeded = statuses.filter(r => !r.prod.error && r.prod.ahead_by > 0).length;
+    const totalVulns = statuses.reduce((sum, r) => sum + (r.vulns || 0), 0);
 
-    res.json({ html, lastRefresh, qaNeeded, prodNeeded });
+    res.json({ html, lastRefresh, qaNeeded, prodNeeded, totalVulns });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
