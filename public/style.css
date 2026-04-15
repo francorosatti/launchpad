@@ -44,13 +44,43 @@
   color: #fff;
 }
 
-.badge-vuln {
-  background: #7c3aed;
+.badge-vuln-critical {
+  background: #dc2626;
   color: #fff;
 }
 
-.badge-vuln:hover {
-  background: #6d28d9;
+.badge-vuln-critical:hover {
+  background: #b91c1c;
+  color: #fff;
+}
+
+.badge-vuln-high {
+  background: #ea580c;
+  color: #fff;
+}
+
+.badge-vuln-high:hover {
+  background: #c2410c;
+  color: #fff;
+}
+
+.badge-vuln-medium {
+  background: #ca8a04;
+  color: #fff;
+}
+
+.badge-vuln-medium:hover {
+  background: #a16207;
+  color: #fff;
+}
+
+.badge-vuln-low {
+  background: #2563eb;
+  color: #fff;
+}
+
+.badge-vuln-low:hover {
+  background: #1d4ed8;
   color: #fff;
 }
 

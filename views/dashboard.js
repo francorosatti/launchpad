@@ -19,11 +19,17 @@ function renderBranchesCell(org, repo, count) {
   return `<a href="${url}" target="_blank">${count}</a>`;
 }
 
-function renderVulnsCell(org, repo, count) {
+function renderVulnsCell(org, repo, vulns) {
   const url = `https://github.com/${encodeURIComponent(org)}/${encodeURIComponent(repo)}/security/dependabot`;
-  if (count === null) return '<span class="badge badge-error" title="Could not fetch (Dependabot may not be enabled)">N/A</span>';
-  if (count === 0) return `<a href="${url}" target="_blank" class="badge badge-ok">0</a>`;
-  return `<a href="${url}" target="_blank" class="badge badge-vuln">${count}</a>`;
+  if (vulns === null) return '<span class="badge badge-error" title="Could not fetch (Dependabot may not be enabled)">N/A</span>';
+  const total = vulns.critical + vulns.high + vulns.medium + vulns.low;
+  if (total === 0) return `<a href="${url}" target="_blank" class="badge badge-ok">0</a>`;
+  const parts = [];
+  if (vulns.critical) parts.push(`<a href="${url}?q=is%3Aopen+severity%3Acritical" target="_blank" class="badge badge-vuln-critical">${vulns.critical} critical</a>`);
+  if (vulns.high) parts.push(`<a href="${url}?q=is%3Aopen+severity%3Ahigh" target="_blank" class="badge badge-vuln-high">${vulns.high} high</a>`);
+  if (vulns.medium) parts.push(`<a href="${url}?q=is%3Aopen+severity%3Amedium" target="_blank" class="badge badge-vuln-medium">${vulns.medium} medium</a>`);
+  if (vulns.low) parts.push(`<a href="${url}?q=is%3Aopen+severity%3Alow" target="_blank" class="badge badge-vuln-low">${vulns.low} low</a>`);
+  return parts.join(' ');
 }
 
 function renderRow(org, repo) {
@@ -41,7 +47,16 @@ function renderDashboard(org, statuses, lastRefresh) {
 
   const qaNeeded = statuses.filter(r => !r.qa.error && r.qa.ahead_by > 0).length;
   const prodNeeded = statuses.filter(r => !r.prod.error && r.prod.ahead_by > 0).length;
-  const totalVulns = statuses.reduce((sum, r) => sum + (r.vulns || 0), 0);
+  const vulnTotals = statuses.reduce((acc, r) => {
+    if (r.vulns) {
+      acc.critical += r.vulns.critical;
+      acc.high += r.vulns.high;
+      acc.medium += r.vulns.medium;
+      acc.low += r.vulns.low;
+    }
+    return acc;
+  }, { critical: 0, high: 0, medium: 0, low: 0 });
+  const totalVulns = vulnTotals.critical + vulnTotals.high + vulnTotals.medium + vulnTotals.low;
 
   return `
     <hgroup>
@@ -52,7 +67,15 @@ function renderDashboard(org, statuses, lastRefresh) {
     <div class="summary">
       <span class="badge badge-deploy">${qaNeeded} need QA deploy</span>
       <span class="badge badge-deploy-prod">${prodNeeded} need Prod deploy</span>
-      <span id="vuln-summary" class="badge ${totalVulns > 0 ? 'badge-vuln' : 'badge-ok'}">${totalVulns} vulnerabilit${totalVulns === 1 ? 'y' : 'ies'}</span>
+      <span id="vuln-summary">${totalVulns === 0
+        ? '<span class="badge badge-ok">0 vulnerabilities</span>'
+        : [
+            vulnTotals.critical ? `<span class="badge badge-vuln-critical">${vulnTotals.critical} critical</span>` : '',
+            vulnTotals.high ? `<span class="badge badge-vuln-high">${vulnTotals.high} high</span>` : '',
+            vulnTotals.medium ? `<span class="badge badge-vuln-medium">${vulnTotals.medium} medium</span>` : '',
+            vulnTotals.low ? `<span class="badge badge-vuln-low">${vulnTotals.low} low</span>` : '',
+          ].filter(Boolean).join(' ')
+      }</span>
       <button id="refresh-btn" class="outline" onclick="refreshData()">Refresh</button>
       <small id="last-refresh">Last refreshed: ${escapeHtml(lastRefresh)}</small>
     </div>
@@ -93,9 +116,19 @@ function renderDashboard(org, statuses, lastRefresh) {
           summary.querySelector('.badge-deploy').textContent = data.qaNeeded + ' need QA deploy';
           summary.querySelector('.badge-deploy-prod').textContent = data.prodNeeded + ' need Prod deploy';
 
-          const vulnBadge = document.getElementById('vuln-summary');
-          vulnBadge.textContent = data.totalVulns + (data.totalVulns === 1 ? ' vulnerability' : ' vulnerabilities');
-          vulnBadge.className = 'badge ' + (data.totalVulns > 0 ? 'badge-vuln' : 'badge-ok');
+          const vulnSummary = document.getElementById('vuln-summary');
+          const vt = data.vulnTotals;
+          const vTotal = vt.critical + vt.high + vt.medium + vt.low;
+          if (vTotal === 0) {
+            vulnSummary.innerHTML = '<span class="badge badge-ok">0 vulnerabilities</span>';
+          } else {
+            const parts = [];
+            if (vt.critical) parts.push('<span class="badge badge-vuln-critical">' + vt.critical + ' critical</span>');
+            if (vt.high) parts.push('<span class="badge badge-vuln-high">' + vt.high + ' high</span>');
+            if (vt.medium) parts.push('<span class="badge badge-vuln-medium">' + vt.medium + ' medium</span>');
+            if (vt.low) parts.push('<span class="badge badge-vuln-low">' + vt.low + ' low</span>');
+            vulnSummary.innerHTML = parts.join(' ');
+          }
         } catch (err) {
           alert('Refresh failed: ' + err.message);
         } finally {

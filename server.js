@@ -69,9 +69,17 @@ app.get('/api/refresh', async (req, res) => {
     const html = statuses.map(repo => renderRow(cfg.org, repo)).join('\n');
     const qaNeeded = statuses.filter(r => !r.qa.error && r.qa.ahead_by > 0).length;
     const prodNeeded = statuses.filter(r => !r.prod.error && r.prod.ahead_by > 0).length;
-    const totalVulns = statuses.reduce((sum, r) => sum + (r.vulns || 0), 0);
+    const vulnTotals = statuses.reduce((acc, r) => {
+      if (r.vulns) {
+        acc.critical += r.vulns.critical;
+        acc.high += r.vulns.high;
+        acc.medium += r.vulns.medium;
+        acc.low += r.vulns.low;
+      }
+      return acc;
+    }, { critical: 0, high: 0, medium: 0, low: 0 });
 
-    res.json({ html, lastRefresh, qaNeeded, prodNeeded, totalVulns });
+    res.json({ html, lastRefresh, qaNeeded, prodNeeded, vulnTotals });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
