@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Launchpad
+Comment=GitHub deploy status dashboard
+Exec=bash -c "systemctl --user start launchpad.service; sleep 1; xdg-open http://localhost:3033"
+Type=Application
+Categories=Development;
+Icon=/path/to/your/launchpad/public/icon.png
+StartupNotify=false

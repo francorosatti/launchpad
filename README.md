@@ -171,22 +171,19 @@ The dashboard will be available at http://localhost:3033 every time you log in.
 
 ### App menu shortcut (optional)
 
-On **Linux**, you can add Launchpad to your application menu so it opens in your default browser:
+On **Linux**, you can add Launchpad to your application menu. The shortcut starts the service automatically if it's not running, then opens the dashboard in your browser.
 
-```bash
-cat > ~/.local/share/applications/launchpad.desktop << EOF
-[Desktop Entry]
-Name=Launchpad
-Comment=GitHub deploy status dashboard
-Exec=xdg-open http://localhost:3033
-Type=Application
-Categories=Development;
-Icon=/path/to/your/launchpad/public/icon.svg
-StartupNotify=false
-EOF
-```
+1. Edit `launchpad.desktop` and update the `Icon` path to match your clone location:
 
-Update the `Icon` path to match your clone location.
+   ```ini
+   Icon=/path/to/your/launchpad/public/icon.png
+   ```
+
+2. Install the shortcut:
+
+   ```bash
+   cp launchpad.desktop ~/.local/share/applications/
+   ```
 
 ## Usage
 
