@@ -1,5 +1,6 @@
-function renderSettings(currentConfig) {
+function renderSettings(currentConfig, defaultReposDir) {
   const currentOrg = currentConfig?.org || '';
+  const reposDir = currentConfig?.reposDir || '';
   const currentRepos = currentConfig?.repos || [];
 
   return `
@@ -23,6 +24,10 @@ function renderSettings(currentConfig) {
           <p>Select an organization first.</p>
         </fieldset>
       </div>
+
+      <label for="repos-dir">Local repositories folder</label>
+      <input type="text" id="repos-dir" name="reposDir" value="${escapeAttr(reposDir)}" placeholder="${escapeAttr(defaultReposDir)}">
+      <small>Folder containing your local clones. "Fix vulnerabilities" starts Claude Code here. Leave empty for the default.</small>
 
       <button type="submit">Save</button>
     </form>
@@ -97,6 +102,10 @@ function renderSettings(currentConfig) {
 
       loadOrgs();
     </script>`;
+}
+
+function escapeAttr(str) {
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 module.exports = { renderSettings };

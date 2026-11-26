@@ -32,8 +32,14 @@ function renderVulnsCell(org, repo, vulns) {
   return parts.join(' ');
 }
 
+function vulnTotal(vulns) {
+  return vulns ? vulns.critical + vulns.high + vulns.medium + vulns.low : 0;
+}
+
 function renderRow(org, repo) {
+  const total = vulnTotal(repo.vulns);
   return `<tr>
+    <td><input type="checkbox" class="repo-select" value="${escapeHtml(repo.name)}" data-vulns="${total}" aria-label="Select ${escapeHtml(repo.name)}"></td>
     <td><a href="https://github.com/${encodeURIComponent(org)}/${encodeURIComponent(repo.name)}" target="_blank">${escapeHtml(repo.name)}</a></td>
     <td>${renderStatusCell(org, repo.name, repo.qa, 'qa', 'development')}</td>
     <td>${renderStatusCell(org, repo.name, repo.prod, 'master', 'qa')}</td>
@@ -42,7 +48,7 @@ function renderRow(org, repo) {
   </tr>`;
 }
 
-function renderDashboard(org, statuses, lastRefresh) {
+function renderDashboard(org, statuses, lastRefresh, reposDir) {
   const rows = statuses.map(repo => renderRow(org, repo)).join('\n');
 
   const qaNeeded = statuses.filter(r => !r.qa.error && r.qa.ahead_by > 0).length;
@@ -77,6 +83,7 @@ function renderDashboard(org, statuses, lastRefresh) {
           ].filter(Boolean).join(' ')
       }</span>
       <button id="refresh-btn" class="outline" onclick="refreshData()">Refresh</button>
+      <button id="fix-vulns-btn" onclick="openFixDialog()" disabled>Fix vulnerabilities</button>
       <small id="last-refresh">Last refreshed: ${escapeHtml(lastRefresh)}</small>
     </div>
 
@@ -84,6 +91,7 @@ function renderDashboard(org, statuses, lastRefresh) {
       <table role="grid">
         <thead>
           <tr>
+            <th class="select-col"><input type="checkbox" id="select-all-repos" aria-label="Select all repositories"></th>
             <th>Repository</th>
             <th>QA <small>(development &rarr; qa)</small></th>
             <th>Production <small>(qa &rarr; master)</small></th>
@@ -97,7 +105,152 @@ function renderDashboard(org, statuses, lastRefresh) {
       </table>
     </figure>
 
+    <dialog id="fix-dialog">
+      <article>
+        <header>
+          <button aria-label="Close" rel="prev" onclick="closeFixDialog()"></button>
+          <h3>Fix vulnerabilities</h3>
+        </header>
+        <p>Opens a terminal in <code>${escapeHtml(reposDir)}</code> with a Claude Code session running this prompt. Edit it before launching, for example to mark shared libraries.</p>
+        <p id="fix-missing" class="fix-warning" hidden></p>
+        <textarea id="fix-prompt" rows="20" spellcheck="false"></textarea>
+        <p id="fix-result" hidden></p>
+        <footer>
+          <button class="secondary" onclick="closeFixDialog()">Cancel</button>
+          <button id="fix-launch-btn" onclick="launchFix()">Launch Claude Code</button>
+        </footer>
+      </article>
+    </dialog>
+
     <script>
+      const PROMPT_TEMPLATE = (repos) => [
+        'This folder contains all my repos, I need you to do a task only in the following ones:',
+        '',
+        ...repos.map(r => '- ' + r),
+        '',
+        'For each repo do:',
+        '- pull latest version of qa branch',
+        '- create a worktree',
+        '- check all the vulnerabilities reported by dependabot on github.',
+        '- start by doing a npm audit fix, then analyze what are still open and fix them too.',
+        '- be careful if anything needs major updates, let me know and approve.',
+        '- run local testing to make sure each project is healthy in terms of lint, tests, etc.',
+        '- rebase on top of latest qa, open a PR.',
+        '',
+        'Other instructions:',
+        '- Use subagents for each repo with latest Sonnet model',
+        '- Use this session only to coordinate and interact with me',
+        '',
+      ].join('\\n');
+
+      function selectedRepos() {
+        return [...document.querySelectorAll('.repo-select:checked')].map(cb => cb.value);
+      }
+
+      function updateSelectionUi() {
+        const all = document.querySelectorAll('.repo-select');
+        const checked = selectedRepos().length;
+        const btn = document.getElementById('fix-vulns-btn');
+        btn.disabled = checked === 0;
+        btn.textContent = checked ? 'Fix vulnerabilities (' + checked + ')' : 'Fix vulnerabilities';
+        const master = document.getElementById('select-all-repos');
+        master.checked = all.length > 0 && checked === all.length;
+        master.indeterminate = checked > 0 && checked < all.length;
+      }
+
+      // Pre-select repos with open alerts; keep the user's choices across refreshes.
+      let userSelection = null;
+      function applySelection() {
+        document.querySelectorAll('.repo-select').forEach(cb => {
+          cb.checked = userSelection ? userSelection.has(cb.value) : Number(cb.dataset.vulns) > 0;
+        });
+        updateSelectionUi();
+      }
+
+      document.getElementById('status-body').addEventListener('change', (e) => {
+        if (!e.target.classList.contains('repo-select')) return;
+        userSelection = new Set(selectedRepos());
+        updateSelectionUi();
+      });
+
+      document.getElementById('select-all-repos').addEventListener('change', (e) => {
+        document.querySelectorAll('.repo-select').forEach(cb => { cb.checked = e.target.checked; });
+        userSelection = new Set(selectedRepos());
+        updateSelectionUi();
+      });
+
+      async function postJson(url, body) {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json().catch(() => ({ error: 'Unexpected response (' + res.status + ')' }));
+        if (!res.ok && !data.error) data.error = 'Request failed (' + res.status + ')';
+        return data;
+      }
+
+      async function openFixDialog() {
+        const repos = selectedRepos();
+        if (!repos.length) return;
+        document.getElementById('fix-prompt').value = PROMPT_TEMPLATE(repos);
+        const result = document.getElementById('fix-result');
+        result.hidden = true;
+        result.innerHTML = '';
+        const launchBtn = document.getElementById('fix-launch-btn');
+        launchBtn.disabled = false;
+        const warning = document.getElementById('fix-missing');
+        warning.hidden = true;
+        document.getElementById('fix-dialog').showModal();
+
+        const check = await postJson('/api/fix-vulns/check', { repos });
+        if (check.error) {
+          warning.textContent = check.error;
+          warning.hidden = false;
+        } else if (check.missing.length) {
+          warning.textContent = 'Not cloned in ' + check.reposDir + ': ' + check.missing.join(', ') + '. Claude will not find these unless you clone them first.';
+          warning.hidden = false;
+        }
+      }
+
+      function closeFixDialog() {
+        document.getElementById('fix-dialog').close();
+      }
+
+      async function launchFix() {
+        const btn = document.getElementById('fix-launch-btn');
+        const result = document.getElementById('fix-result');
+        btn.setAttribute('aria-busy', 'true');
+        btn.disabled = true;
+        try {
+          const data = await postJson('/api/fix-vulns', { prompt: document.getElementById('fix-prompt').value });
+          result.hidden = false;
+          result.innerHTML = '';
+          if (data.error) {
+            result.className = 'fix-warning';
+            result.append('Could not launch: ' + data.error);
+            btn.disabled = false;
+          } else {
+            result.className = 'fix-ok';
+            result.append('Claude Code started in a new terminal window.');
+          }
+          if (data.command) {
+            const pre = document.createElement('pre');
+            pre.textContent = data.command;
+            result.append(document.createElement('br'), 'To run it manually:', pre);
+          }
+        } catch (err) {
+          result.hidden = false;
+          result.className = 'fix-warning';
+          result.textContent = 'Could not launch: ' + err.message;
+          btn.disabled = false;
+        } finally {
+          btn.removeAttribute('aria-busy');
+        }
+      }
+
+      applySelection();
+
       async function refreshData() {
         const btn = document.getElementById('refresh-btn');
         btn.setAttribute('aria-busy', 'true');
@@ -110,6 +263,7 @@ function renderDashboard(org, statuses, lastRefresh) {
             return;
           }
           document.getElementById('status-body').innerHTML = data.html;
+          applySelection();
           document.getElementById('last-refresh').textContent = 'Last refreshed: ' + data.lastRefresh;
 
           const summary = document.querySelector('.summary');

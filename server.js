@@ -2,6 +2,7 @@ const express = require('express');
 const path = require('path');
 const config = require('./lib/config');
 const github = require('./lib/github');
+const agent = require('./lib/agent');
 const { layout } = require('./views/layout');
 const { renderDashboard, renderRow } = require('./views/dashboard');
 const { renderSettings } = require('./views/settings');
@@ -17,7 +18,7 @@ app.get('/', async (req, res) => {
     if (!cfg) return res.redirect('/settings');
     const statuses = await github.fetchAllStatuses(cfg.org, cfg.repos);
     const now = new Date().toLocaleString();
-    res.send(layout('Dashboard', renderDashboard(cfg.org, statuses, now)));
+    res.send(layout('Dashboard', renderDashboard(cfg.org, statuses, now, agent.resolveReposDir(cfg))));
   } catch (err) {
     res.status(500).send(layout('Error', `<h2>Error</h2><p>${err.message}</p><p>Make sure <code>gh</code> is installed and authenticated.</p>`));
   }
@@ -26,7 +27,7 @@ app.get('/', async (req, res) => {
 // Settings page
 app.get('/settings', async (req, res) => {
   const cfg = await config.load();
-  res.send(layout('Settings', renderSettings(cfg)));
+  res.send(layout('Settings', renderSettings(cfg, agent.DEFAULT_REPOS_DIR)));
 });
 
 // Save settings
@@ -34,7 +35,8 @@ app.post('/settings', async (req, res) => {
   const org = req.body.org;
   let repos = req.body.repos || [];
   if (typeof repos === 'string') repos = [repos];
-  await config.save({ org, repos });
+  const reposDir = (req.body.reposDir || '').trim();
+  await config.save({ org, repos, ...(reposDir ? { reposDir } : {}) });
   res.redirect('/');
 });
 
@@ -82,6 +84,48 @@ app.get('/api/refresh', async (req, res) => {
     res.json({ html, lastRefresh, qaNeeded, prodNeeded, vulnTotals });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// Endpoints that launch local processes must only be callable from this app's own pages.
+// Requiring a JSON body forces a CORS preflight for cross-origin requests (which we never answer),
+// and the Origin check rejects anything that isn't the dashboard itself.
+function sameOriginJson(req, res, next) {
+  const origin = req.get('origin');
+  if (!req.is('application/json') || (origin && origin !== `${req.protocol}://${req.get('host')}`)) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  next();
+}
+
+function parseRepoList(value, allowed) {
+  if (!Array.isArray(value)) return null;
+  const repos = value.filter(r => typeof r === 'string' && allowed.includes(r));
+  return repos.length === value.length && repos.length > 0 ? repos : null;
+}
+
+// API: which of the selected repos are missing from the local repos folder
+app.post('/api/fix-vulns/check', express.json(), sameOriginJson, async (req, res) => {
+  const cfg = await config.load();
+  if (!cfg) return res.status(400).json({ error: 'Not configured' });
+  const repos = parseRepoList(req.body.repos, cfg.repos);
+  if (!repos) return res.status(400).json({ error: 'Select at least one followed repository' });
+  const reposDir = agent.resolveReposDir(cfg);
+  const missing = await agent.checkLocalRepos(reposDir, repos);
+  res.json({ reposDir, missing });
+});
+
+// API: open a terminal with a Claude Code session that fixes vulnerabilities in the selected repos
+app.post('/api/fix-vulns', express.json({ limit: '100kb' }), sameOriginJson, async (req, res) => {
+  const cfg = await config.load();
+  if (!cfg) return res.status(400).json({ error: 'Not configured' });
+  const prompt = typeof req.body.prompt === 'string' ? req.body.prompt.trim() : '';
+  if (!prompt) return res.status(400).json({ error: 'Prompt is empty' });
+  try {
+    const { command } = await agent.launchClaudeSession({ reposDir: agent.resolveReposDir(cfg), prompt });
+    res.json({ ok: true, command });
+  } catch (err) {
+    res.status(500).json({ error: err.message, command: err.command });
   }
 });
 
