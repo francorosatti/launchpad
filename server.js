@@ -18,7 +18,7 @@ app.get('/', async (req, res) => {
     if (!cfg) return res.redirect('/settings');
     const statuses = await github.fetchAllStatuses(cfg.org, cfg.repos);
     const now = new Date().toLocaleString();
-    res.send(layout('Dashboard', renderDashboard(cfg.org, statuses, now, agent.resolveReposDir(cfg))));
+    res.send(layout('Dashboard', renderDashboard(cfg.org, statuses, now, agent.resolveReposDir(cfg), cfg.libraries || [])));
   } catch (err) {
     res.status(500).send(layout('Error', `<h2>Error</h2><p>${err.message}</p><p>Make sure <code>gh</code> is installed and authenticated.</p>`));
   }
@@ -36,7 +36,8 @@ app.post('/settings', async (req, res) => {
   let repos = req.body.repos || [];
   if (typeof repos === 'string') repos = [repos];
   const reposDir = (req.body.reposDir || '').trim();
-  await config.save({ org, repos, ...(reposDir ? { reposDir } : {}) });
+  const libraries = (req.body.libraries || '').split(/[\s,]+/).map(s => s.trim()).filter(Boolean);
+  await config.save({ org, repos, ...(reposDir ? { reposDir } : {}), ...(libraries.length ? { libraries } : {}) });
   res.redirect('/');
 });
 
