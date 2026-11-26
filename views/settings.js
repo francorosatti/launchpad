@@ -1,6 +1,7 @@
 function renderSettings(currentConfig, defaultReposDir) {
   const currentOrg = currentConfig?.org || '';
   const reposDir = currentConfig?.reposDir || '';
+  const libraries = (currentConfig?.libraries || []).join(', ');
   const currentRepos = currentConfig?.repos || [];
 
   return `
@@ -28,6 +29,10 @@ function renderSettings(currentConfig, defaultReposDir) {
       <label for="repos-dir">Local repositories folder</label>
       <input type="text" id="repos-dir" name="reposDir" value="${escapeAttr(reposDir)}" placeholder="${escapeAttr(defaultReposDir)}">
       <small>Folder containing your local clones. "Fix vulnerabilities" starts Claude Code here. Leave empty for the default.</small>
+
+      <label for="libraries">Shared libraries</label>
+      <input type="text" id="libraries" name="libraries" value="${escapeAttr(libraries)}" placeholder="e.g. forward-kafka-integrator">
+      <small>Comma-separated repo names that other repos depend on. When selected, "Fix vulnerabilities" fixes and releases them first, then updates the other repos to the new version.</small>
 
       <button type="submit">Save</button>
     </form>

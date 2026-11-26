@@ -48,7 +48,7 @@ function renderRow(org, repo) {
   </tr>`;
 }
 
-function renderDashboard(org, statuses, lastRefresh, reposDir) {
+function renderDashboard(org, statuses, lastRefresh, reposDir, libraries = []) {
   const rows = statuses.map(repo => renderRow(org, repo)).join('\n');
 
   const qaNeeded = statuses.filter(r => !r.qa.error && r.qa.ahead_by > 0).length;
@@ -111,7 +111,7 @@ function renderDashboard(org, statuses, lastRefresh, reposDir) {
           <button aria-label="Close" rel="prev" onclick="closeFixDialog()"></button>
           <h3>Fix vulnerabilities</h3>
         </header>
-        <p>Opens a terminal in <code>${escapeHtml(reposDir)}</code> with a Claude Code session running this prompt. Edit it before launching, for example to mark shared libraries.</p>
+        <p>Opens a terminal in <code>${escapeHtml(reposDir)}</code> with a Claude Code session running this prompt. Edit it before launching if needed. Shared libraries (set in Settings) are fixed and released first.</p>
         <p id="fix-missing" class="fix-warning" hidden></p>
         <textarea id="fix-prompt" rows="20" spellcheck="false"></textarea>
         <p id="fix-result" hidden></p>
@@ -123,11 +123,9 @@ function renderDashboard(org, statuses, lastRefresh, reposDir) {
     </dialog>
 
     <script>
-      const PROMPT_TEMPLATE = (repos) => [
-        'This folder contains all my repos, I need you to do a task only in the following ones:',
-        '',
-        ...repos.map(r => '- ' + r),
-        '',
+      const LIBRARIES = ${JSON.stringify(libraries).replace(/</g, "\\u003c")};
+
+      const STEPS = [
         'For each repo do:',
         '- pull latest version of qa branch',
         '- create a worktree',
@@ -136,12 +134,56 @@ function renderDashboard(org, statuses, lastRefresh, reposDir) {
         '- be careful if anything needs major updates, let me know and approve.',
         '- run local testing to make sure each project is healthy in terms of lint, tests, etc.',
         '- rebase on top of latest qa, open a PR.',
-        '',
+      ];
+
+      const OTHER = [
         'Other instructions:',
         '- Use subagents for each repo with latest Sonnet model',
         '- Use this session only to coordinate and interact with me',
-        '',
-      ].join('\\n');
+      ];
+
+      // Shared libraries go first: the other repos can only drop the vulnerabilities that
+      // come through a library once a fixed version of it has been released.
+      function buildPrompt(repos) {
+        const libs = repos.filter(r => LIBRARIES.includes(r));
+        const others = repos.filter(r => !LIBRARIES.includes(r));
+        if (!libs.length) {
+          return [
+            'This folder contains all my repos, I need you to do a task only in the following ones:',
+            '',
+            ...others.map(r => '- ' + r),
+            '',
+            ...STEPS,
+            '',
+            ...OTHER,
+            '',
+          ].join('\\n');
+        }
+        const lines = [
+          'This folder contains all my repos, I need you to do a task only in the following ones:',
+          '',
+          'Shared libraries (other repos depend on these):',
+          ...libs.map(r => '- ' + r),
+        ];
+        if (others.length) lines.push('', 'Repos that may depend on them:', ...others.map(r => '- ' + r));
+        lines.push(
+          '',
+          ...STEPS,
+          '',
+          'Order of work:',
+          '1. Fix the shared libraries first. Do not start any other repo until step 3.',
+          '   - Use a conventional commit message (e.g. "fix(deps): resolve dependabot vulnerabilities") so semantic-release publishes a new patch version.',
+          '   - When the library PR is open, stop and tell me. I will merge it and release it (qa -> master).',
+          '2. Wait until I confirm the release, then check the new version is actually published and that it has no open vulnerabilities.',
+        );
+        if (others.length) {
+          lines.push(
+            '3. Then fix the other repos. In each one that depends on a shared library, update it to the new version as part of the same PR, and check that the vulnerabilities coming from the library are gone.',
+          );
+        }
+        lines.push('', ...OTHER, '');
+        return lines.join('\\n');
+      }
 
       function selectedRepos() {
         return [...document.querySelectorAll('.repo-select:checked')].map(cb => cb.value);
@@ -193,7 +235,7 @@ function renderDashboard(org, statuses, lastRefresh, reposDir) {
       async function openFixDialog() {
         const repos = selectedRepos();
         if (!repos.length) return;
-        document.getElementById('fix-prompt').value = PROMPT_TEMPLATE(repos);
+        document.getElementById('fix-prompt').value = buildPrompt(repos);
         const result = document.getElementById('fix-result');
         result.hidden = true;
         result.innerHTML = '';
