@@ -193,6 +193,17 @@ On **Linux**, you can add Launchpad to your application menu. The shortcut start
 4. Click **Save** — you'll land on the dashboard
 5. Hit **Refresh** anytime to fetch the latest branch status
 
+### Fixing vulnerabilities with Claude Code
+
+Repos with open Dependabot alerts are pre-selected in the first column. Adjust the selection, then click **Fix vulnerabilities**. A dialog shows the prompt Claude will get (one line per repo, plus the steps: pull `qa`, create a worktree, `npm audit fix`, handle remaining alerts, ask before major upgrades, lint/test, rebase, open a PR). Edit it if needed, for example to note that a repo is a shared library, then click **Launch Claude Code**.
+
+Launchpad opens a new terminal window in your local repositories folder running an interactive `claude` session with that prompt. You approve major upgrades and answer questions in that window.
+
+Requirements:
+- [Claude Code](https://docs.claude.com/en/docs/claude-code) (`claude`) installed. Launchpad looks in `PATH`, then `~/.local/bin`, `~/.claude/local`, `/usr/local/bin` and `/opt/homebrew/bin`.
+- A terminal it can open: `gnome-terminal` or `x-terminal-emulator` on Linux, Terminal.app on macOS. When running as a systemd service, the user manager needs `DISPLAY` (GNOME sets this for you; check with `systemctl --user show-environment`).
+- The repos cloned under the local repositories folder (default `~/Documents/github`, configurable in **Settings**). The dialog warns about selected repos that aren't cloned there.
+
 ## Configuration
 
 Settings are stored in `config.json` (gitignored). To change your org or repos, visit http://localhost:3033/settings.

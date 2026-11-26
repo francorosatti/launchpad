@@ -120,7 +120,37 @@ figure {
   overflow-x: auto;
 }
 
-table th:first-child,
-table td:first-child {
+table th:nth-child(2),
+table td:nth-child(2) {
   min-width: 200px;
+}
+
+table th.select-col,
+table td:first-child:has(.repo-select) {
+  min-width: 0;
+  width: 2.5rem;
+}
+
+#fix-dialog article {
+  max-width: 900px;
+  width: 100%;
+}
+
+#fix-prompt {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85rem;
+}
+
+.fix-warning {
+  color: #b45309;
+}
+
+.fix-ok {
+  color: #2d8a4e;
+}
+
+#fix-result pre {
+  white-space: pre-wrap;
+  word-break: break-all;
+  margin-top: 0.5rem;
 }
