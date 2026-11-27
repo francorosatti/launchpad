@@ -195,7 +195,13 @@ On **Linux**, you can add Launchpad to your application menu. The shortcut start
 
 ### Fixing vulnerabilities with Claude Code
 
-Repos with open Dependabot alerts are pre-selected in the first column. Adjust the selection, then click **Fix vulnerabilities**. A dialog shows the prompt Claude will get (one line per repo, plus the steps: pull `qa`, create a worktree, `npm audit fix`, handle remaining alerts, ask before major upgrades, lint/test, rebase, open a PR). Edit it if needed, for example to note that a repo is a shared library, then click **Launch Claude Code**.
+Repos with open Dependabot alerts are pre-selected in the first column. Adjust the selection, then click **Fix vulnerabilities**. A dialog shows the prompt Claude will get (one line per repo, plus the steps: pull `qa`, create a worktree, `npm audit fix`, handle remaining alerts, ask before major upgrades, lint/test, rebase, open a PR).
+
+The prompt also includes safeguards learned from earlier runs:
+- npm runs with `NODE_ENV=development`, so dev-only alerts aren't hidden by a shell set to production.
+- `npm ls` is diffed after every change, so a major version pulled in by a patch or minor bump of its parent still counts as a major and waits for your approval. Nothing is pushed while an approval is pending.
+- Lint and tests run in a copy outside the repo folder, so a nested worktree can't load the main checkout's `node_modules`.
+- Before each PR, every open alert is checked against `package-lock.json`, and the coordinating session repeats that check instead of trusting the subagent's report. Edit it if needed, for example to note that a repo is a shared library, then click **Launch Claude Code**.
 
 Repos listed under **Shared libraries** in Settings (for example `forward-kafka-integrator`) are handled first: Claude fixes the library, opens its PR with a conventional `fix(deps)` commit, and waits for you to merge and release it. It then updates the other selected repos to the new version in their own fixes.
 
