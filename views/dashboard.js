@@ -130,9 +130,15 @@ function renderDashboard(org, statuses, lastRefresh, reposDir, libraries = []) {
         '- pull latest version of qa branch',
         '- create a worktree',
         '- check all the vulnerabilities reported by dependabot on github.',
+        '- run every npm command with NODE_ENV=development. If the shell has NODE_ENV=production, npm ci, npm audit and npm ls silently skip devDependencies, so dev-only alerts look fixed when they are not.',
         '- start by doing a npm audit fix, then analyze what are still open and fix them too.',
         '- be careful if anything needs major updates, let me know and approve.',
+        '   - Save npm ls --all --json before the first change and diff it after every change. Any package whose resolved version crosses a major counts, including transitive ones pulled in by a patch or minor bump of their parent. Revert it and ask me before applying it.',
+        '   - Do not push or open a PR while a major update is waiting for my approval.',
         '- run local testing to make sure each project is healthy in terms of lint, tests, etc.',
+        '   - Run them in a copy of the worktree outside the repo folder (rsync without .git and node_modules, then npm ci there, and never run git commands in the copy). Tests inside a worktree nested in the main checkout can load the main checkout node_modules and fail or pass for the wrong reason.',
+        '   - Only call a failure pre-existing after reproducing it the same way on a clean copy of qa.',
+        '- before opening the PR, fetch the open dependabot alerts again. For each one, check with jq on package-lock.json that every copy of the package is at or above the patched version. Never claim a fix the lockfile does not show; list what is still open and why.',
         '- rebase on top of latest qa, open a PR.',
       ];
 
@@ -140,6 +146,7 @@ function renderDashboard(org, statuses, lastRefresh, reposDir, libraries = []) {
         'Other instructions:',
         '- Use subagents for each repo with latest Sonnet model',
         '- Use this session only to coordinate and interact with me',
+        '- Do not trust a subagent report on its own. Before telling me a repo is done, check its PR branch yourself: every open dependabot alert is at or above the patched version in package-lock.json, and the diff has no major version change I did not approve.',
       ];
 
       // Shared libraries go first: the other repos can only drop the vulnerabilities that
